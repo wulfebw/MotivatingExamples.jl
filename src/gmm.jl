@@ -1,3 +1,8 @@
+export
+    get_gmm_dists,
+    compute_gmm_ll,
+    fit_gmm
+
 
 function get_gmm_dists(mus::Array{Float64}, sigmas::Array{Float64})
     K = size(mus, 2)

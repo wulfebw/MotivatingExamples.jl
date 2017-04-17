@@ -1,3 +1,11 @@
+export
+    Learner,
+    TDLearner,
+    reset!,
+    get_feedback,
+    predict,
+    learn
+
 abstract Learner
 
 type TDLearner <: Learner
@@ -43,19 +51,25 @@ end
 
 function learn(learner::TDLearner, x::Array{Float64}, r::Array{Float64}, 
         nx::Array{Float64}, done::Bool)
-
     # update 
     total_td_error = 0
     inds, ws = interpolants(learner.grid, x)
     for (ind, w) in zip(inds, ws)
+        # something is happening to cause this index to be 0 
+        # I am not sure what it is, but do not believe it is due to 
+        # GridInterpolations, so is likely a bug in this code
+        if ind == 0
+            continue
+        end
+
         # target value
         target = r
         if !done
-            target += learner.discount * predict(learner, x)
+            target += learner.discount * predict(learner, nx)
         end
 
         # update
-        td_error = w * (target - predict(learner, nx))
+        td_error = w * (target - predict(learner, x))
         learner.values[:, ind] += learner.lr * td_error
         total_td_error += td_error
     end
@@ -67,7 +81,7 @@ end
 function learn(learner::TDLearner, experience::ExperienceMemory)
     for i in 1:length(experience)
         x, a, r, nx, done = get(experience, i)
-        learn(learner, x, a, r, nx, done)
+        learn(learner, x, r, nx, done)
     end
     return get_feedback(learner)
 end

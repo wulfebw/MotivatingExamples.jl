@@ -1,15 +1,28 @@
+export
+    Environment,
+    Env,
+    Continuous1DRandomWalkEnv,
+    reset!,
+    step
+
 abstract Environment
+typealias Env Environment
+
 @with_kw type Continuous1DRandomWalkEnv <: Environment
     xmin::Float64 = -10.
     xmax::Float64 = 10
     initial_state_dist::Distribution = Uniform(xmin, xmax)
     x::Array{Float64} = [0.]
 end
-function reset(env::Continuous1DRandomWalkEnv, dist::Distribution = env.initial_state_dist) 
-    env.x = rand(dist)
+function reset!(env::Continuous1DRandomWalkEnv, dist::Distribution = env.initial_state_dist) 
+    x = rand(dist)
+    if typeof(x) == Float64
+        x = [x]
+    end
+    env.x = x
     return env.x
 end
-function reset(env::Continuous1DRandomWalkEnv, x::Array{Float64})
+function reset!(env::Continuous1DRandomWalkEnv, x::Array{Float64})
     env.x = x
 end
 function step(env::Continuous1DRandomWalkEnv, a::Array{Float64})

@@ -1,3 +1,15 @@
+export
+    Trainer,
+    AdaptiveTrainer,
+    finished_training,
+    prepare_experience,
+    update_experience,
+    collect_experience,
+    incorporate_feedback,
+    run_training_step,
+    monitor_progress,
+    train,
+    reset!
 
 """
 # Description:
@@ -11,11 +23,12 @@
 """
 abstract Trainer
 
-finished_training(trainer::Trainer) = has_time_remaining(trainer.monitor.timer)
+finished_training(trainer::Trainer) = return !has_time_remaining(trainer.monitor.timer)
 prepare_experience(trainer::Trainer, env::Env, policy::Policy) = trainer.experience
 
 function update_experience(trainer::Trainer, x::Array{Float64}, 
-        a::Array{Float64}, r::Array{Float64}, nx::Array{Float64}, done::Bool)
+        a::Array{Float64}, r::Union{Array{Float64},Float64}, nx::Array{Float64}, 
+        done::Bool)
     trainer.step_count += 1
     update_experience(trainer.experience, x, a, r, nx, done)
 end
@@ -28,7 +41,7 @@ function collect_experience(trainer::Trainer, env::Env, policy::Policy)
         done = false
         for t in 1:trainer.max_episode_steps
             a = step(policy, x)
-            nx, r, done, info = step(env, a)
+            nx, r, done = step(env, a)
             update_experience(trainer, x, a, r, nx, done)
             x = nx
             if done break end

@@ -1,3 +1,8 @@
+export
+    Policy,
+    UnivariateGaussianPolicy,
+    step
+
 abstract Policy
 @with_kw type UnivariateGaussianPolicy <: Policy
     μ::Float64 = 0.
