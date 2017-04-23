@@ -9,7 +9,7 @@ export
     run_training_step,
     monitor_progress,
     train,
-    reset!
+    reinitialize
 
 """
 # Description:
@@ -23,7 +23,10 @@ export
 """
 abstract Trainer
 
-finished_training(trainer::Trainer) = return !has_time_remaining(trainer.monitor.timer)
+finished_training(trainer::Trainer) = (
+    trainer.step_count > trainer.max_step_count 
+    || !has_time_remaining(trainer.monitor.timer)
+    )
 prepare_experience(trainer::Trainer, env::Env, policy::Policy) = trainer.experience
 
 function update_experience(trainer::Trainer, x::Array{Float64}, 
@@ -64,14 +67,17 @@ function monitor_progress(trainer::Trainer, learner::Learner, env::Env, policy::
 end
 
 function train(trainer::Trainer, learner::Learner, env::Env, policy::Policy)
+    # restart(trainer.monitor)
     while !finished_training(trainer)
         run_training_step(trainer, learner, env, policy)
         monitor_progress(trainer, learner, env, policy)
     end
 end
 
-function reset!(trainer::Trainer)
+function reinitialize(trainer::Trainer)
+    trainer.step_count = 0
     reset_experience(trainer.experience)
+    reinitialize(trainer.monitor)
 end
 
 type AdaptiveTrainer <: Trainer
@@ -81,14 +87,17 @@ type AdaptiveTrainer <: Trainer
     max_episode_steps::Int
     num_mc_runs::Int
     experience::ExperienceMemory
+    max_step_count::Int
     step_count::Int
     prev_update_step::Int
     function AdaptiveTrainer(initial_state_dist::Distribution,
             monitor::TrainingMonitor;
             update_dist_freq::Int = 100,
             max_episode_steps::Int = 1,
-            num_mc_runs::Int = 1)
+            num_mc_runs::Int = 1,
+            max_step_count::Int = typemax(Int))
         return new(initial_state_dist, monitor, update_dist_freq, 
-            max_episode_steps, num_mc_runs, reset_experience(), 0, 0)
+            max_episode_steps, num_mc_runs, reset_experience(), max_step_count,
+            0, 0)
     end
 end

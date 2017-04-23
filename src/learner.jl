@@ -1,7 +1,7 @@
 export
     Learner,
     TDLearner,
-    reset!,
+    reinitialize,
     get_feedback,
     predict,
     learn
@@ -25,7 +25,7 @@ type TDLearner <: Learner
     end
 end
 
-reset!(learner::TDLearner) = fill!(learner.values, 0)
+reinitialize(learner::TDLearner) = fill!(learner.values, 0)
 function get_feedback(learner::TDLearner)
     td_errors = learner.td_errors[:]
     empty!(learner.td_errors)

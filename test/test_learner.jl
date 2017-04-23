@@ -1,3 +1,5 @@
+# using Base.Test
+# using MotivatingExamples
 
 function test_simple_learning()
     srand(0)
@@ -61,4 +63,26 @@ function test_simple_learning()
     # PGFPlots.save("../data/test2.pdf", img)
 end
 
+function test_learner_reinitialize()
+    srand(0)
+    minpos = 0
+    maxpos = 1
+    nbins = 6
+    bins = linspace(minpos, maxpos, nbins)
+    grid = RectangleGrid(bins, bins)
+    target_dim = 2
+    learner = TDLearner(grid, target_dim, discount = 0.5)
+
+    mem = reset_experience()
+    update_experience(mem, [1.,2.], [1.], [1.,2.], [2.,1.], false)
+    learn(learner, mem)
+    values1 = learner.values[:]
+    reinitialize(learner)
+    @test all(learner.values .== zeros(target_dim, length(grid)))
+    learn(learner, mem)
+    values2 = learner.values[:]
+    @test all(values1 .== values2)
+end
+
 @time test_simple_learning()
+@time test_learner_reinitialize()
