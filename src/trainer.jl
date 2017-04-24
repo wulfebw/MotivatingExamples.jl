@@ -37,6 +37,7 @@ function update_experience(trainer::Trainer, x::Array{Float64},
 end
 
 function collect_experience(trainer::Trainer, env::Env, policy::Policy)
+    reset_experience(trainer.experience)
     ix = reset!(env, trainer.initial_state_dist)
     for run in 1:trainer.num_mc_runs
         x = ix[:]
@@ -52,14 +53,14 @@ function collect_experience(trainer::Trainer, env::Env, policy::Policy)
     end
 end
 
-function incorporate_feedback(trainer::Trainer, feedback::Array{Float64})
-    reset_experience(trainer.experience)
-end
+# base trainer does nothing with feedback
+incorporate_feedback(trainer::Trainer, feedback::Dict{String, Array{Float64}}, 
+    env::Env, policy::Policy) = trainer
 
 function run_training_step(trainer::Trainer, learner::Learner, env::Env, policy::Policy)
     collect_experience(trainer, env, policy)
     feedback = learn(learner, prepare_experience(trainer, env, policy))
-    incorporate_feedback(trainer, feedback)
+    incorporate_feedback(trainer, feedback, env, policy)
     monitor_progress(trainer.monitor, learner, trainer.step_count)
 end
 
@@ -79,20 +80,53 @@ type AdaptiveTrainer <: Trainer
     initial_state_dist::Distribution
     monitor::TrainingMonitor
     update_dist_freq::Int
+    n_components::Int
+    feedback::Dict{String, Array{Float64}}
     max_episode_steps::Int
     num_mc_runs::Int
     experience::ExperienceMemory
     max_step_count::Int
     step_count::Int
-    prev_update_step::Int
     function AdaptiveTrainer(initial_state_dist::Distribution,
             monitor::TrainingMonitor;
-            update_dist_freq::Int = 100,
+            update_dist_freq::Int = 1000,
+            n_components::Int = 2,
             max_episode_steps::Int = 1,
             num_mc_runs::Int = 1,
             max_step_count::Int = typemax(Int))
-        return new(initial_state_dist, monitor, update_dist_freq, 
-            max_episode_steps, num_mc_runs, reset_experience(), max_step_count,
-            0, 0)
+        return new(initial_state_dist, monitor, update_dist_freq, n_components,
+            Dict{String, Array{Float64}}(), max_episode_steps, num_mc_runs,
+            reset_experience(), max_step_count, 0)
+    end
+end
+
+function incorporate_feedback(trainer::AdaptiveTrainer, 
+        feedback::Dict{String, Array{Float64}}, env::Env, policy::Policy)
+    update_feedback(trainer.feedback, feedback)
+    if feedback_length(trainer.feedback) >= trainer.update_dist_freq
+        # compute the utility weight of the samples as their softmax
+        util_w = normalize_log_probs(trainer.feedback["errors"])
+
+        # compute the likelihood ratio of each state under the environment 
+        # sampling probability and the proposal distribution
+        p_proposal = pdf(trainer.initial_state_dist, trainer.feedback["states"])
+        p_env = pdf(env, trainer.feedback["states"])
+        likelihood_w = p_env ./ p_proposal
+        x_w = util_w .* reshape(likelihood_w, 1, length(likelihood_w))
+        x_w ./= maximum(x_w)
+
+        # refit the initial state distribution
+        trainer.initial_state_dist = fit(typeof(trainer.initial_state_dist), 
+            trainer.feedback["states"], 
+            x_w = x_w, 
+            n_components = trainer.n_components)
+
+        # pause(trainer.monitor.timer)
+        # a = plot_1d_dist(trainer.initial_state_dist)
+        # save("/Users/wulfebw/Desktop/temp_risk/dist_$(trainer.step_count).pdf", a)
+        # unpause(trainer.monitor.timer)
+
+        # empty the trainers feedback
+        empty!(trainer.feedback)
     end
 end

@@ -1,7 +1,7 @@
 # using Base.Test
 # using MotivatingExamples
 
-function test_simple_learning()
+function test_simple_td_learning()
     srand(0)
     minpos = 0
     maxpos = 1
@@ -84,5 +84,5 @@ function test_learner_reinitialize()
     @test all(values1 .== values2)
 end
 
-@time test_simple_learning()
+@time test_simple_td_learning()
 @time test_learner_reinitialize()

@@ -1,5 +1,5 @@
-using Base.Test
-using MotivatingExamples
+# using Base.Test
+# using MotivatingExamples
 
 function build_debug_mc_learner()
     minpos = 0
@@ -49,7 +49,7 @@ function test_compute_single_episode_state_returns()
 
 end
 
-function test_simple_learning()
+function test_simple_mc_learning()
     srand(0)
     minpos = 0
     maxpos = 1
@@ -70,4 +70,4 @@ function test_simple_learning()
 end
 
 @time test_compute_single_episode_state_returns()
-@time test_simple_learning()
+@time test_simple_mc_learning()

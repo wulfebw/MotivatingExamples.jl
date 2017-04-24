@@ -4,7 +4,10 @@ export
     reinitialize,
     get_feedback,
     predict,
-    learn
+    learn,
+    update_feedback,
+    feedback_length,
+    copy_feedback
 
 abstract Learner
 
@@ -27,6 +30,58 @@ function predict(learner::Learner, states::Array{Float64})
     return values
 end
 
+function copy_feedback(feedback::Dict{String, Array{Float64}})
+    new_feedback = Dict{String, Array{Float64}}()
+    new_feedback["errors"] = feedback["errors"][:,:]
+    new_feedback["states"] = feedback["states"][:,:]
+    return new_feedback
+end
+
+function feedback_length(feedback::Dict{String, Array{Float64}})
+    if in("errors", keys(feedback))
+        return length(feedback["errors"])
+    else
+        return 0
+    end
+end
+
+function update_feedback(feedback::Dict{String, Array{Float64}}, error::Float64,
+    x::Array{Float64})
+
+    k = "states"
+    if !in(k, keys(feedback))
+        feedback[k] = reshape(x, length(x), 1)
+    else
+        feedback[k] = hcat(feedback[k], reshape(x, length(x), 1))
+    end
+
+    k = "errors"
+    if !in(k, keys(feedback))
+        feedback[k] = [error]
+    else
+        feedback[k] = hcat(feedback[k], error)
+    end
+    return feedback
+end
+
+function update_feedback(dest::Dict{String, Array{Float64}},
+        src::Dict{String, Array{Float64}})
+    for k in ["states", "errors"]
+        if !in(k, keys(dest))
+            dest[k] = src[k]
+        else
+            dest[k] = hcat(dest[k], src[k])
+        end
+    end
+    return dest
+end
+
+function get_feedback(learner::Learner)
+    feedback = copy_feedback(learner.feedback)
+    empty!(learner.feedback)
+    return feedback
+end
+
 type TDLearner <: Learner
     grid::RectangleGrid # for intepolating continuous states
     values::Array{Float64} # for maintaining state values (target dim, num unique states)
@@ -34,20 +89,14 @@ type TDLearner <: Learner
     target_dim::Int # dimension of output
     lr::Float64 # learning rate for td update
     discount::Float64 # discount rate 
-    td_errors::Array{Float64} # td errors
+    feedback::Dict{String, Array{Float64}} # reporting errors
     function TDLearner(grid::RectangleGrid, target_dim::Int;
             lr::Float64 = .1, discount::Float64 = 1.)
         values = zeros(Float64, target_dim, length(grid))
         targets = zeros(Float64, target_dim)
-        td_errors = Float64[]
-        return new(grid, values, targets, target_dim, lr, discount, td_errors)
+        feedback = Dict{String, Array{Float64}}()
+        return new(grid, values, targets, target_dim, lr, discount, feedback)
     end
-end
-
-function get_feedback(learner::TDLearner)
-    td_errors = learner.td_errors[:]
-    empty!(learner.td_errors)
-    return td_errors
 end
 
 function learn(learner::TDLearner, x::Array{Float64}, r::Array{Float64}, 
@@ -75,8 +124,8 @@ function learn(learner::TDLearner, x::Array{Float64}, r::Array{Float64},
         total_td_error += td_error
     end
 
-    # store td-error associated with this state for later use as feedback
-    push!(learner.td_errors, sum(abs(total_td_error)))
+    # store error and state for later feedback
+    update_feedback(learner.feedback, sum(abs(total_td_error)), x)
 end
 
 function learn(learner::TDLearner, experience::ExperienceMemory)

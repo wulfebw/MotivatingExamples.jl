@@ -22,6 +22,7 @@ function reset!(env::Continuous1DRandomWalkEnv,
     if typeof(x) == Float64
         x = [x]
     end
+    x = max(min(x, env.xmax), env.xmin)
     env.x = x
     return env.x
 end
@@ -41,4 +42,12 @@ function step(env::Continuous1DRandomWalkEnv, a::Array{Float64})
         done = false
     end
     return (env.x, r, done)
+end
+
+function pdf(env::Continuous1DRandomWalkEnv, x::Vector{Float64})
+    return 1 / (env.xmax - env.xmin)
+end
+function pdf(env::Continuous1DRandomWalkEnv, x::Array{Float64})
+    _, N = size(x)
+    return ones(N) ./ (env.xmax - env.xmin)
 end

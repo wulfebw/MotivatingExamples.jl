@@ -12,20 +12,14 @@ type MCLearner <: Learner
     target_dim::Int # dimension of output
     lr::Float64 # learning rate for td update
     discount::Float64 # discount rate 
-    pred_errors::Array{Float64} # prediction errors
+    feedback::Dict{String, Array{Float64}} # reporting errors
     function MCLearner(grid::RectangleGrid, target_dim::Int;
             lr::Float64 = .1, discount::Float64 = 1.)
         values = zeros(Float64, target_dim, length(grid))
         targets = zeros(Float64, target_dim)
-        pred_errors = Float64[]
-        return new(grid, values, targets, target_dim, lr, discount, pred_errors)
+        feedback = Dict{String, Array{Float64}}()
+        return new(grid, values, targets, target_dim, lr, discount, feedback)
     end
-end
-
-function get_feedback(learner::MCLearner)
-    pred_errors = learner.pred_errors[:]
-    empty!(learner.pred_errors)
-    return pred_errors
 end
 
 # computes returns assuming the experience contains a single complete 
@@ -75,8 +69,8 @@ function learn(learner::MCLearner, x::Array{Float64}, ret::Array{Float64})
         total_pred_error += pred_error
     end
 
-    # store td-error associated with this state for later use as feedback
-    push!(learner.pred_errors, sum(abs(total_pred_error)))
+    # store error and state for later feedback
+    update_feedback(learner.feedback, sum(abs(total_pred_error)), x)
 end
 
 function learn(learner::MCLearner, experience::ExperienceMemory)

@@ -35,16 +35,27 @@ type GaussianMixtureModel <: Distribution
 end
 
 function rand(d::GaussianMixtureModel)
-    c = argmax(rand(d.m))
+    c = indmax(rand(d.m))
     return rand(d.dists[c])
+end
+rand(rng::MersenneTwister, d::GaussianMixtureModel) = rand(d)
+function rand(d::GaussianMixtureModel, n_samples::Int)
+    s = rand(d)
+    dim = length(s)
+    samples = zeros(dim, n_samples)
+    samples[:, 1] = s
+    for i in 1:(n_samples - 1)
+        samples[:, i] = rand(d)
+    end
+    return samples
 end
 
 function logpdf(d::GaussianMixtureModel, x::Array{Float64})
-    log_prob = 0 
-    for (i, d) in enumerate(dists)
-        log_prob += log(m.p[i]) + logpdf(d, x)
+    prob = 0 
+    for (i, mvd) in enumerate(d.dists)
+        prob += d.m.p[i] * pdf(mvd, x)
     end
-    return log_prob
+    return log(prob)
 end
 pdf(d::GaussianMixtureModel, x::Array{Float64}) = exp(logpdf(d, x))
 
@@ -94,8 +105,7 @@ function compute_gmm_ll(π::Array{Float64}, μ::Array{Float64}, Σ::Array{Float6
     return ll
 end
 
-function em(::Type{GaussianMixtureModel},
-        x::Array{Float64}; 
+function fit_gmm(x::Array{Float64}; 
         x_w::Array{Float64} = ones(1, size(x, 2)), 
         max_iters::Int = 30, 
         tol::Float64 = 1e-2, 
@@ -165,6 +175,7 @@ function fit(T::Type{GaussianMixtureModel},
         max_iters::Int = 30, 
         tol::Float64 = 1e-2, 
         n_components::Int = 2)
-    π, μ, Σ = em(T, x, x_w, max_iters, tol, n_components)
-    return GaussianMixtureModel(π, μ, Σ)
+    π, μ, Σ = fit_gmm(x, x_w = x_w, max_iters = max_iters, tol = tol, 
+        n_components = n_components)
+    return GaussianMixtureModel(π[:], μ, Σ)
 end

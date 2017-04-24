@@ -1,6 +1,7 @@
 export
     plot_state_values,
-    plot_learning_curve
+    plot_learning_curve,
+    plot_1d_dist
 
 function plot_state_values(learner::Learner, monitor::TrainingMonitor,
         output_filepath::String)
@@ -27,4 +28,18 @@ function plot_learning_curve(monitor::TrainingMonitor, output_filepath::String)
     p = Plots.Linear(collect(1:length(curve)), curve)
     push!(a, p)
     PGFPlots.save(output_filepath, a)
+end
+
+function plot_1d_dist(d::Distribution, n_samples::Int = 1000)
+    samples = rand(d, n_samples)
+    lo, hi = minimum(samples), maximum(samples)
+    samples = reshape(samples, length(samples))
+    a = Axis(Plots.Histogram(samples, bins=50), 
+                xmin=lo, 
+                xmax=hi, 
+                width="5.5cm", 
+                height="5.5cm",
+                legendPos="north west"
+    )
+    return a
 end
