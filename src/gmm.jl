@@ -3,7 +3,6 @@ export
     compute_gmm_ll,
     fit_gmm
 
-
 function get_gmm_dists(mus::Array{Float64}, sigmas::Array{Float64})
     K = size(mus, 2)
     try
@@ -52,7 +51,7 @@ function fit_gmm(samples::Array{Float64};
     for k in 1:K
         s = (k-1) * step
         e = s + step
-        mus[:,k] = mean(samples[:, s+1:e],2)
+        mus[:,k] = mean(samples[:, s+1:e], 2)
     end
     
     sigmas = zeros(D, D, K)

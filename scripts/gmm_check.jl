@@ -1,3 +1,7 @@
+using Distributions
+using MotivatingExamples
+using PGFPlots
+
 # check the EM implementation
 g = GroupPlot(2, 2, groupStyle = "horizontal sep = 1.75cm, vertical sep = 1.5cm")
 sc = "{a={mark=diamond,blue},b={mark=diamond,red},c={mark=diamond,green}}"
@@ -87,4 +91,4 @@ end
 scatter_pred = Plots.Scatter(samples[1,:], zeros(length(samples[1,:])), z, scatterClasses=sc)
 push!(g, scatter_pred)
 
-g
+PGFPlots.save("../data/visualizations/gmm_check.pdf", g)

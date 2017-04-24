@@ -3,11 +3,13 @@ module MotivatingExamples
 
 using Reexport
 
+@reexport using Distributions
 @reexport using GridInterpolations
 @reexport using Parameters
 using PGFPlots
 
 import Base: step, length, reset, get, done, info, rand, srand
+import Distributions: fit, pdf, logpdf
 
 include("utils.jl")
 include("distributions.jl")

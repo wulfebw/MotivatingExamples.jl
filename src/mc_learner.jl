@@ -2,7 +2,7 @@ export
     MCLearner,
     get_feedback,
     predict,
-    compute_state_returns,
+    compute_single_episode_state_returns,
     learn
 
 type MCLearner <: Learner
@@ -28,18 +28,30 @@ function get_feedback(learner::MCLearner)
     return pred_errors
 end
 
-function compute_state_returns(experience::ExperienceMemory, discount::Float64)
+# computes returns assuming the experience contains a single complete 
+# or partial episode - i.e., it doesn't allow for repeated simulation of 
+# a single state. It would be possible to account for multiple episodes 
+# but not in a nice way, and not in a manner that would combine estimates 
+# for a single state
+function compute_single_episode_state_returns(experience::ExperienceMemory, 
+        learner::Learner, discount::Float64)
     state_returns = Tuple{Array{Float64},Array{Float64}}[]
-    R = 0
-    for i in length(experience):-1:1
+    if length(experience) == 0
+        return state_returns
+    end
+
+    # optionally bootstrap
+    x, a, r, nx, done = get(experience, length(experience))
+    if done
+        R = zeros(size(r))
+    else
+        R = predict(learner, nx)
+    end
+
+    # accumulate returns backward
+    for i in (length(experience)):-1:1
         x, a, r, nx, done = get(experience, i)
-        # if done == true, then this is the last tuple in this episode
-        # and therefore the return should be set to the reward at this timestep
-        if done
-            R = r
-        else
-            R = r + discount * R
-        end
+        R = r + discount * R
         push!(state_returns, (x, R))
     end
     return state_returns
@@ -68,7 +80,8 @@ function learn(learner::MCLearner, x::Array{Float64}, ret::Array{Float64})
 end
 
 function learn(learner::MCLearner, experience::ExperienceMemory)
-    state_returns = compute_state_returns(experience, learner.discount)
+    state_returns = compute_single_episode_state_returns(experience, learner, 
+        learner.discount)
     for (x, ret) in state_returns
         learn(learner, x, ret)
     end

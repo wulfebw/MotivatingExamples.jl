@@ -12,8 +12,8 @@ function update_results(results::Dict, trainer::Trainer, learner::Learner,
 end
 
 # env
-xmin = -100.
-xmax = 100.
+xmin = -100000.
+xmax = 100000.
 env = Continuous1DRandomWalkEnv(xmin = xmin, xmax = xmax)
 
 # policy
@@ -35,7 +35,7 @@ n_eval_bins = 100
 n_eval_samples = 20
 budget = typemax(Float64)
 timer = BudgetTimer(budget)
-max_step_count = 100000
+max_step_count = 500000
 run_eval_every = Int(ceil(max_step_count / n_eval_samples)) 
 eval_states = reshape(linspace(env.xmin, env.xmax, n_eval_bins), (1, n_eval_bins))
 
@@ -52,7 +52,7 @@ monitor = TrainingMonitor(timer = timer, eval_states = eval_states,
 max_episode_steps_options = [1, 5, 20]
 n_ep_opts = length(max_episode_steps_options)
 num_mc_runs_options = [1, 2, 5]
-n_mc_opts =length(num_mc_runs_options)
+n_mc_opts = length(num_mc_runs_options)
 
 # run each hyperparameter setting and collect results
 results = Dict()
@@ -63,7 +63,7 @@ for (i, max_episode_steps) in enumerate(max_episode_steps_options)
         println("mc $(j) / $(n_mc_opts)")
         learner = TDLearner(grid, target_dim, discount = discount, lr = lr)
         trainer = AdaptiveTrainer(env.initial_state_dist, monitor,
-            max_episode_steps = max_episode_steps,
+            max_episode_steps = 5,
             num_mc_runs = num_mc_runs,
             max_step_count = max_step_count)
         for run in 1:runs_per_setting
@@ -77,7 +77,7 @@ for (i, max_episode_steps) in enumerate(max_episode_steps_options)
     end
 end
 
-# plot results
+# accumulate results
 learnings_curves = zeros(n_eval_samples, n_mc_opts, n_ep_opts)
 state_values = zeros(n_eval_bins, n_mc_opts, n_ep_opts)
 losses = zeros(n_mc_opts, n_ep_opts)
@@ -104,9 +104,9 @@ learnings_curves = learnings_curves[1:min_n_eval_samples, :, :]
 state_values /= runs_per_setting
 
 # plot
-a = Axis(legendPos="south west", width="16cm", height="16cm", xlabel="Seconds", 
-    ylabel="Root Mean Square Error", title="Error in Estimated Risk", ymin=0., 
-    ymax=.6)
+a = Axis(legendPos="south west", width="16cm", height="16cm", xlabel="steps", 
+        ylabel="Root Mean Square Error", title="Error in Estimated Risk", ymin=0., 
+        ymax=.6)
 markcolors = ["red", "blue", "green", "black"]
 markers = ["square", "triangle", "o", "diamond"]
 
@@ -115,15 +115,15 @@ for (i, max_episode_steps) in enumerate(max_episode_steps_options)
     for (j, num_mc_runs) in enumerate(num_mc_runs_options)
         marker = markers[j]
         avg_curve = learnings_curves[:,i,j]
-        p = Plots.Linear(1:length(avg_curve), avg_curve[:,1], 
-        legendentry="steps: $(max_episode_steps) monte carlo runs: $(num_mc_runs)",
-        mark="$(marker)",
-        style="$(markcolor),thick",
-        markSize=4)
+        p = Plots.Linear(collect(1:length(avg_curve)) .* run_eval_every, avg_curve[:,1], 
+            legendentry="steps: $(max_episode_steps) monte carlo runs: $(num_mc_runs)",
+            mark="$(marker)",
+            style="$(markcolor),thick",
+            markSize=4)
         push!(a, p)
     end
 end
-PGFPlots.save("../data/visualizations/learning_curves.pdflearning_curves.pdf", a)
+PGFPlots.save("../data/visualizations/learning_curves.pdf", a)
 
 
 # plot all the value functions
@@ -135,11 +135,9 @@ for (i, max_episode_steps) in enumerate(max_episode_steps_options)
             legendentry="error: $(round(losses[i,j], 3))"), 
             width="5.5cm", 
             height="5.5cm",
-        legendPos="north west",
-        title=string("steps: $(max_episode_steps) monte carlo runs: $(num_mc_runs)"))
+            legendPos="north west",
+            title=string("steps: $(max_episode_steps) monte carlo runs: $(num_mc_runs)"))
         push!(g, p)
     end
 end
 PGFPlots.save("../data/visualizations/state_values.pdf", g)
-
-

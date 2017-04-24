@@ -15,8 +15,6 @@ So I've just reimplemented a few types with this functionality and have not
 imported Distributions.jl
 =#
 
-abstract Distribution
-
 type Uniform <: Distribution
   hi::Float64
   lo::Float64  
