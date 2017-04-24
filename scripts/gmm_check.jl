@@ -29,7 +29,7 @@ end
 scatter_orig = Plots.Scatter(samples[1,:], samples[2,:], z, scatterClasses=sc)
 push!(g, scatter_orig)
 
-pis, mus, sigmas = fit_gmm(samples, num_components = 3)
+pis, mus, sigmas = em(GaussianMixtureModel, samples, n_components = 3)
 println("pis: $(pis)")
 println("mus: $(mus)")
 println("sigmas: $(sigmas)")
@@ -74,7 +74,8 @@ end
 scatter_orig = Plots.Scatter(samples[1,:], zeros(length(samples[1,:])), z, scatterClasses=sc)
 push!(g, scatter_orig)
 
-pis, mus, sigmas = fit_gmm(samples, samp_w = reshape(samp_w, 1, length(samp_w)))
+pis, mus, sigmas = em(GaussianMixtureModel, samples, 
+    x_w = reshape(samp_w, 1, length(samp_w)))
 println("pis: $(pis)")
 println("mus: $(mus)")
 println("sigmas: $(sigmas)")

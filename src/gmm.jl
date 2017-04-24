@@ -1,106 +1,170 @@
 export
+    GaussianMixtureModel,
     get_gmm_dists,
+    initialize_gmm,
     compute_gmm_ll,
-    fit_gmm
+    fit,
+    em,
+    rand,
+    pdf,
+    logpdf
 
-function get_gmm_dists(mus::Array{Float64}, sigmas::Array{Float64})
-    K = size(mus, 2)
+function get_gmm_dists(μ::Array{Float64}, Σ::Array{Float64}, K::Int)
+    dists = MvNormal[]
     try
-        dists = [MvNormal(mus[:,k], sigmas[:,:,k]) for k in 1:K]
+        dists = [MvNormal(μ[:,k], Σ[:,:,k]) for k in 1:K]
     catch e
         println("exception raised while getting the gmm dists: $(e)")
         for i in 1:K
             println("component $(i)")
-            println("mus: $(mus[:,i])")
-            println("sigmas: $(sigmas[:,:,i])")
+            println("μ: $(μ[:,i])")
+            println("Σ: $(Σ[:,:,i])")
         end
         throw(e)
     end
+    return dists
 end
 
-function compute_gmm_ll(samples::Array{Float64}, 
-        pis::Array{Float64}, 
-        mus::Array{Float64}, 
-        sigmas::Array{Float64}, 
-        samp_w::Array{Float64} = ones(size(samples, 2))
-    )
-    N, K = size(samples, 2), length(pis)
-    dists = get_gmm_dists(mus, sigmas)
-    ll = 0
-    for sidx in 1:N
-        total = 0
-        for k in 1:K
-            total += pis[k] * pdf(dists[k], samples[:, sidx])
-        end
-        ll += samp_w[sidx] * log(total)
+type GaussianMixtureModel <: Distribution
+    m::Multinomial
+    dists::Vector{MvNormal}
+    function GaussianMixtureModel(π::Array{Float64}, μ::Array{Float64}, 
+        Σ::Array{Float64})
+        return new(Multinomial(1, π), get_gmm_dists(μ, Σ, length(π)))
     end
-    return ll
 end
 
-function fit_gmm(samples::Array{Float64}; 
-        samp_w::Array{Float64} = ones(1, size(samples,2)), 
-        max_iters::Int = 30, 
-        tol::Float64 = 1e-2, 
-        num_components::Int = 2)
-    # init
-    N, K, D = size(samples, 2), num_components, length(samples[:, 1])
+function rand(d::GaussianMixtureModel)
+    c = argmax(rand(d.m))
+    return rand(d.dists[c])
+end
+
+function logpdf(d::GaussianMixtureModel, x::Array{Float64})
+    log_prob = 0 
+    for (i, d) in enumerate(dists)
+        log_prob += log(m.p[i]) + logpdf(d, x)
+    end
+    return log_prob
+end
+pdf(d::GaussianMixtureModel, x::Array{Float64}) = exp(logpdf(d, x))
+
+#=
+Fitting
+=#
+
+function initialize_gmm(K::Int, x::Array{Float64}, 
+        x_w::Array{Float64} = ones(size(x, 2)))
+    D, N = size(x)
     w = zeros(K, N)
-    
-    mus = zeros(D, K)
+
+    # means 
+    μ = zeros(D, K)
     step = Int(ceil(D / K))
     for k in 1:K
         s = (k-1) * step
         e = s + step
-        mus[:,k] = mean(samples[:, s+1:e], 2)
+        μ[:,k] = sum(x[:, s+1:e] .* x_w) / sum(x_w)
     end
-    
-    sigmas = zeros(D, D, K)
+
+    # covariance matrices
+    Σ = zeros(D, D, K)
     for k in 1:K
-        sigmas[:,:,k] = eye(D)
+        Σ[:,:,k] = eye(D)
     end
-    pis = rand(K)
-    pis ./= sum(pis)
-    dists = get_gmm_dists(mus, sigmas)
-    prev_ll = compute_gmm_ll(samples, pis, mus, sigmas)
+
+    # class prior weights
+    π = rand(K)
+    π ./= sum(π)
+
+    return w, μ, Σ, π
+end
+
+function compute_gmm_ll(π::Array{Float64}, μ::Array{Float64}, Σ::Array{Float64}, 
+        x::Array{Float64}, x_w::Array{Float64} = ones(size(x, 2)))
+    N, K = size(x, 2), length(π)
+    dists = get_gmm_dists(μ, Σ, K)
+    ll = 0
+    for sidx in 1:N
+        total = 0
+        for k in 1:K
+            total += π[k] * pdf(dists[k], x[:, sidx])
+        end
+        ll += x_w[sidx] * log(total)
+    end
+    return ll
+end
+
+function em(::Type{GaussianMixtureModel},
+        x::Array{Float64}; 
+        x_w::Array{Float64} = ones(1, size(x, 2)), 
+        max_iters::Int = 30, 
+        tol::Float64 = 1e-2, 
+        n_components::Int = 2,
+        verbose::Bool = false)
+
+    # initialize
+    D, N = size(x)
+    K = n_components
+    w, μ, Σ, π = initialize_gmm(K, x, x_w)
+    dists = get_gmm_dists(μ, Σ, K)
+
+    prev_ll = compute_gmm_ll(π, μ, Σ, x, x_w)
     for iteration in 1:max_iters
+        
         # e-step
-        log_pis = log(pis)
+        log_π = log(π)
         for sidx in 1:N
             for k in 1:K
-                w[k, sidx] = log_pis[k] + logpdf(dists[k], samples[:, sidx])
+                w[k, sidx] = log_π[k] + logpdf(dists[k], x[:, sidx])
             end
         end
         w = normalize_log_probs(w)
-        w .*= samp_w # account for sample probability
+        # account for sample probability after normalizing because 
+        # the sample weights do not impact normalization and this is more 
+        # efficient
+        w .*= x_w 
 
         # m-step
-        pis = sum(w, 2) ./ sum(w)
+        π = sum(w, 2) ./ sum(w)
         
-        mus = zeros(D, K)
+        μ = zeros(D, K)
         for k in 1:K
             for sidx in 1:N
-                mus[:, k] += w[k,sidx] * samples[:,sidx]
+                μ[:, k] += w[k,sidx] * x[:,sidx]
             end
-            mus[:, k] ./= sum(w[k,:])
+            μ[:, k] ./= sum(w[k,:])
         end
         
-        sigmas = ones(D,D,K) * 1e-8
+        Σ = ones(D,D,K) * 1e-8
         for k in 1:K
             for sidx in 1:N
-                diff = samples[:,sidx] - mus[:, k]
-                sigmas[:, :, k] += w[k, sidx] * (diff * transpose(diff))
+                diff = x[:,sidx] - μ[:, k]
+                Σ[:, :, k] += w[k, sidx] * (diff * transpose(diff))
             end
-            sigmas[:, :, k] ./= sum(w[k, :])
+            Σ[:, :, k] ./= sum(w[k, :])
         end
         
         # check for convergence
-        ll = compute_gmm_ll(samples, pis, mus, sigmas, samp_w)
+        ll = compute_gmm_ll(π, μ, Σ, x, x_w)
+        if verbose
+            println("iteration: $(iteration) / $(max_iters)\t ll: $(ll)")
+        end
         if abs(ll - prev_ll) < tol
             break
         else
             prev_ll = ll
-            dists = get_gmm_dists(mus, sigmas)
+            dists = get_gmm_dists(μ, Σ, K)
         end
     end
-    return pis, mus, sigmas
+    return π, μ, Σ 
+end
+
+function fit(T::Type{GaussianMixtureModel},
+        x::Array{Float64}; 
+        x_w::Array{Float64} = ones(1, size(x, 2)), 
+        max_iters::Int = 30, 
+        tol::Float64 = 1e-2, 
+        n_components::Int = 2)
+    π, μ, Σ = em(T, x, x_w, max_iters, tol, n_components)
+    return GaussianMixtureModel(π, μ, Σ)
 end
