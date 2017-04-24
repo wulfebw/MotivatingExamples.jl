@@ -8,13 +8,32 @@ export
 
 abstract Learner
 
+reinitialize(learner::Learner) = fill!(learner.values, 0)
+
+function predict(learner::Learner, state::Vector{Float64})
+    for tidx in 1:learner.target_dim
+        inds, ws = interpolants(learner.grid, state)
+        learner.targets[tidx] = dot(learner.values[tidx, inds], ws)
+    end
+    return learner.targets
+end
+
+function predict(learner::Learner, states::Array{Float64})
+    state_dim, num_states = size(states)
+    values = zeros(learner.target_dim, num_states)
+    for sidx in 1:num_states
+        values[:, sidx] = predict(learner, states[:, sidx])
+    end
+    return values
+end
+
 type TDLearner <: Learner
     grid::RectangleGrid # for intepolating continuous states
     values::Array{Float64} # for maintaining state values (target dim, num unique states)
     targets::Array{Float64} # temp container for returning target values
     target_dim::Int # dimension of output
     lr::Float64 # learning rate for td update
-    discount::Float64 # discount rate (not entirely sound here)
+    discount::Float64 # discount rate 
     td_errors::Array{Float64} # td errors
     function TDLearner(grid::RectangleGrid, target_dim::Int;
             lr::Float64 = .1, discount::Float64 = 1.)
@@ -25,28 +44,10 @@ type TDLearner <: Learner
     end
 end
 
-reinitialize(learner::TDLearner) = fill!(learner.values, 0)
 function get_feedback(learner::TDLearner)
     td_errors = learner.td_errors[:]
     empty!(learner.td_errors)
     return td_errors
-end
-
-function predict(learner::TDLearner, state::Vector{Float64})
-    for tidx in 1:learner.target_dim
-        inds, ws = interpolants(learner.grid, state)
-        learner.targets[tidx] = dot(learner.values[tidx, inds], ws)
-    end
-    return learner.targets
-end
-
-function predict(learner::TDLearner, states::Array{Float64})
-    state_dim, num_states = size(states)
-    values = zeros(learner.target_dim, num_states)
-    for sidx in 1:num_states
-        values[:, sidx] = predict(learner, states[:, sidx])
-    end
-    return values
 end
 
 function learn(learner::TDLearner, x::Array{Float64}, r::Array{Float64}, 

@@ -60,17 +60,12 @@ function run_training_step(trainer::Trainer, learner::Learner, env::Env, policy:
     collect_experience(trainer, env, policy)
     feedback = learn(learner, prepare_experience(trainer, env, policy))
     incorporate_feedback(trainer, feedback)
-end
-
-function monitor_progress(trainer::Trainer, learner::Learner, env::Env, policy::Policy)
-    monitor_progress(trainer.monitor, learner)
+    monitor_progress(trainer.monitor, learner, trainer.step_count)
 end
 
 function train(trainer::Trainer, learner::Learner, env::Env, policy::Policy)
-    # restart(trainer.monitor)
     while !finished_training(trainer)
         run_training_step(trainer, learner, env, policy)
-        monitor_progress(trainer, learner, env, policy)
     end
 end
 
