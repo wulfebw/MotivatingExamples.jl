@@ -15,4 +15,5 @@ function test_experience()
     @test done == true
 end
 
+println("test_experience.jl")
 @time test_experience()

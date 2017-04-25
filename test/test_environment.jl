@@ -17,4 +17,8 @@ function test_continuous_1D_random_walk_env()
     @test all(a .== b)
 end
 
+function test_continuous_2D_rare_event_env()
+end
+
+println("test_environment.jl")
 @time test_continuous_1D_random_walk_env()

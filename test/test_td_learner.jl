@@ -1,5 +1,6 @@
-# using Base.Test
-# using MotivatingExamples
+using Base.Test
+using MotivatingExamples
+using PGFPlots
 
 function test_simple_td_learning()
     srand(0)
@@ -63,6 +64,40 @@ function test_simple_td_learning()
     # PGFPlots.save("../data/test2.pdf", img)
 end
 
+# function test_simple_td_learning_on_1D_mdp()
+#     srand(0)
+#     minpos = 0.
+#     maxpos = 1000000.
+#     nbins = 20
+#     bins = linspace(minpos, maxpos, nbins)
+#     grid = RectangleGrid(bins)
+#     target_dim = 1
+#     learner = TDLearner(grid, target_dim, discount = 1., lr = 0.1)
+
+#     # collect experience
+#     num_samples = Int(floor(maxpos))
+#     mem = reset_experience()
+    
+#     x = linspace(minpos, maxpos, num_samples)
+#     update_experience(mem, [x[2]], [0.], [1.], [x[1]], true)
+#     for i in 2:(num_samples - 1)
+#         update_experience(mem, [x[i+1]], [0.], [0.], [x[i]], false)
+#     end
+
+#     # train
+#     # fit the model
+#     num_epochs = 10
+#     for epoch in 1:num_epochs
+#         learn(learner, mem)
+#     end
+
+#     states = reshape(collect(linspace(minpos, maxpos, num_samples)), 1, num_samples)
+#     state_values = predict(learner, states)
+#     p = Plots.Linear(1:num_samples, reshape(state_values, num_samples))
+#     PGFPlots.save("/Users/wulfebw/Desktop/test.pdf", p)
+
+# end
+
 function test_learner_reinitialize()
     srand(0)
     minpos = 0
@@ -84,5 +119,7 @@ function test_learner_reinitialize()
     @test all(values1 .== values2)
 end
 
+println("test_td_learner.jl")
 @time test_simple_td_learning()
 @time test_learner_reinitialize()
+# @time test_simple_td_learning_on_1D_mdp()

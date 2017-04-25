@@ -3,6 +3,7 @@ export
     get_gmm_dists,
     initialize_gmm,
     compute_gmm_ll,
+    fit_gmm,
     fit,
     em,
     rand,

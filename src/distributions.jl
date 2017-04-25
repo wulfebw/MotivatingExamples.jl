@@ -1,5 +1,6 @@
 export
     Uniform,
+    MultivariateUniform,
     pdf,
     logpdf,
     rand
@@ -23,4 +24,14 @@ end
 rand(rng::MersenneTwister, d::Uniform) = rand(rng) * (d.hi - d.lo) + d.lo
 pdf(d::Uniform, v::Float64) = 1. / (d.hi - d.lo)
 logpdf(d::Uniform, v::Float64) = log(pdf(d, v))
+
+type MultivariateUniform <: Distribution
+    x::Uniform
+    y::Uniform
+end
+MultivariateUniform(xlo, xhi, ylo, yhi) = MultivariateUniform(
+    Uniform(xlo, xhi), Uniform(ylo, yhi))
+rand(rng::MersenneTwister, d::MultivariateUniform) = [rand(rng, d.x), rand(rng, d.y)]
+pdf(d::MultivariateUniform, v::Array{Float64}) = pdf(d.x, v[1]) * pdf(d.y, v[2])
+logpdf(d::MultivariateUniform, v::Array{Float64}) = log(pdf(d, v))
 

@@ -10,4 +10,5 @@ function test_univariate_gaussian_policy()
     @test all(a .== b)
 end
 
+println("test_policy.jl")
 @time test_univariate_gaussian_policy()

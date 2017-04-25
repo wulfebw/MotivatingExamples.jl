@@ -62,15 +62,15 @@ function learn(learner::MCLearner, x::Array{Float64}, ret::Array{Float64})
         if ind == 0
             continue
         end
-
+        
         # update
         pred_error = w * (ret - learner.values[:, ind])
         learner.values[:, ind] += learner.lr * pred_error
-        total_pred_error += pred_error
+        total_pred_error += abs(pred_error)
     end
 
     # store error and state for later feedback
-    update_feedback(learner.feedback, sum(abs(total_pred_error)), x)
+    update_feedback(learner.feedback, sum(total_pred_error), x)
 end
 
 function learn(learner::MCLearner, experience::ExperienceMemory)

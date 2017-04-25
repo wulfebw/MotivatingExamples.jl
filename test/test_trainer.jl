@@ -1,6 +1,6 @@
-using Base.Test
-using MotivatingExamples
-using PGFPlots
+# using Base.Test
+# using MotivatingExamples
+# using PGFPlots
 
 function build_debug_setup(;
         # general hyperparams
@@ -110,37 +110,47 @@ function test_adaptive_trainer()
      srand(0)
     
     # build everything
-    budget = 30.
+    budget = 10.
     run_eval_every = 1000
-    xmin = -1000.
-    xmax = 1000.
-    π = [.51, .49]
+    xmin = -10.
+    xmax = 10.
+    π = [.49, .51]
     μ = reshape([xmin / 2, xmax / 2], 1, 2)
-    σ = reshape([(xmax - xmin) / 2., (xmax - xmin) / 2.], 1, 1, 2)
 
-    dist = GaussianMixtureModel(π, μ, σ)
+    σ = ((xmax - xmin) / 2.)^2
+    Σ = reshape([σ, σ], 1, 1, 2)
+    dist = GaussianMixtureModel(π, μ, Σ)
+
     trainer, learner, env, policy = build_debug_setup(
         initial_state_dist = dist,
-        update_dist_freq = 500,
+        update_dist_freq = 100,
         max_episode_steps = 1,
+        n_eval_bins = 1000,
         xmin = xmin,
         xmax = xmax,
         budget = budget,
-        run_eval_every = run_eval_every)
+        run_eval_every = run_eval_every,
+        lr = 0.1,
+        nbins = 40)
     monitor = trainer.monitor
     n_eval_bins = length(monitor.eval_states)
 
     # run training
     train(trainer, learner, env, policy)
 
+    v_pred = predict(learner, monitor.eval_states)
+    loss = rmse(monitor.v_true, v_pred)
+    @test loss < .2
+
     # plotting
-    plot_state_values(learner, monitor, 
-        "../data/visualizations/adaptive_test_state_values.pdf")
-    plot_learning_curve(monitor, 
-        "../data/visualizations/adaptive_test_learning_curve.pdf")
+    # plot_state_values(learner, monitor, 
+    #     "/Users/wulfebw/Desktop/adaptive_test_state_values.pdf")
+    # plot_learning_curve(monitor, 
+    #     "/Users/wulfebw/Desktop/adaptive_test_learning_curve.pdf")
 
 end
 
-# @time test_trainer()
-# @time test_trainer_reinitialize()
+println("test_trainer.jl")
+@time test_trainer()
+@time test_trainer_reinitialize()
 @time test_adaptive_trainer()

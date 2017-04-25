@@ -105,7 +105,7 @@ function incorporate_feedback(trainer::AdaptiveTrainer,
     update_feedback(trainer.feedback, feedback)
     if feedback_length(trainer.feedback) >= trainer.update_dist_freq
         # compute the utility weight of the samples as their softmax
-        util_w = normalize_log_probs(trainer.feedback["errors"])
+        util_w = normalize_log_probs(trainer.feedback["errors"], 2)
 
         # compute the likelihood ratio of each state under the environment 
         # sampling probability and the proposal distribution

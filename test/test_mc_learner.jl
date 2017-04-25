@@ -69,5 +69,6 @@ function test_simple_mc_learning()
     @test learner.values[2] == .5
 end
 
+println("test_mc_learner.jl")
 @time test_compute_single_episode_state_returns()
 @time test_simple_mc_learning()

@@ -101,9 +101,11 @@ end
 
 function learn(learner::TDLearner, x::Array{Float64}, r::Array{Float64}, 
         nx::Array{Float64}, done::Bool)
+    
     # update 
     total_td_error = 0
     inds, ws = interpolants(learner.grid, x)
+
     for (ind, w) in zip(inds, ws)
         # something is happening to cause this index to be 0 
         # I am not sure what it is, but do not believe it is due to 
@@ -119,13 +121,13 @@ function learn(learner::TDLearner, x::Array{Float64}, r::Array{Float64},
         end
 
         # update
-        td_error = w * (target - predict(learner, x))
+        td_error = w * (target - learner.values[:, ind])
         learner.values[:, ind] += learner.lr * td_error
-        total_td_error += td_error
+        total_td_error += abs(td_error)
     end
 
     # store error and state for later feedback
-    update_feedback(learner.feedback, sum(abs(total_td_error)), x)
+    update_feedback(learner.feedback, sum(total_td_error), x)
 end
 
 function learn(learner::TDLearner, experience::ExperienceMemory)
