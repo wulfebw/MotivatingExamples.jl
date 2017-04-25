@@ -4,7 +4,8 @@ export
     Continuous1DRandomWalkEnv,
     Continuous2DRareEventEnv,
     reset!,
-    step
+    step,
+    get_thresh
 
 abstract Environment
 typealias Env Environment
@@ -59,7 +60,11 @@ end
     xmax::Float64 = 10.
     ymin::Float64 = -10.
     ymax::Float64 = 10.
-    eps::Float64 = 1e-2 # if actions are within this value reward differs
+    # max thresh gives the upper bound on the action values that trigger rare event
+    # selected to place .9995 of the mass of unit gaussian below
+    max_thresh::Float64 = 3.290
+    # likewise lower bound places .9955 of mass of unit gaussian below
+    min_thresh::Float64 = 2.807
     initial_state_dist::Distribution = MultivariateUniform(xmin, xmax, ymin, ymax)
     x::Array{Float64} = [0., 0.]
     rng::MersenneTwister = MersenneTwister(1)
@@ -75,20 +80,21 @@ end
 function reset!(env::Continuous2DRareEventEnv, x::Array{Float64})
     env.x = x
 end
+function get_thresh(env::Continuous2DRareEventEnv, x::Array{Float64})
+    αx = abs(x[1] / env.xmax)
+    αy = abs(x[2] / env.ymax)
+    α = (αx + αy) / 2.
+    return (env.max_thresh - env.min_thresh) * α + env.min_thresh
+end
 function step(env::Continuous2DRareEventEnv, a::Array{Float64})
     env.x += a
-    if (env.xmin > env.x[1] 
-        || env.x[1] > env.xmax 
-        || env.ymin > env.x[1] 
-        || env.x[2] > env.ymax)
-        done = true
+    env.x[1] = min(max(env.x[1], env.xmin), env.xmax)
+    env.x[2] = min(max(env.x[2], env.xmin), env.xmax)
+    r, done = [0.], false
+    thresh = get_thresh(env, env.x)
+    if a[1] > thresh && a[2] > thresh
+        r, done = [1.], true
     end
-    if abs(a[1] - a[2]) < env.eps
-        r = 1
-    else
-        r = 0
-    end
-
     return (env.x, r, done)
 end
 
