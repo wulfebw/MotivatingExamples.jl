@@ -100,9 +100,17 @@ type AdaptiveTrainer <: Trainer
     end
 end
 
+using JLD
+
 function incorporate_feedback(trainer::AdaptiveTrainer, 
         feedback::Dict{String, Array{Float64}}, env::Env, policy::Policy)
-    update_feedback(trainer.feedback, feedback)
+    # if update_dist_freq < 0 then do not adapt sampling distribution
+    if trainer.update_dist_freq < 0
+        return
+    else
+        update_feedback(trainer.feedback, feedback)
+    end
+
     if feedback_length(trainer.feedback) >= trainer.update_dist_freq
         # compute the utility weight of the samples as their softmax
         util_w = normalize_log_probs(trainer.feedback["errors"], 2)
@@ -116,14 +124,23 @@ function incorporate_feedback(trainer::AdaptiveTrainer,
         x_w ./= maximum(x_w)
 
         # refit the initial state distribution
-        trainer.initial_state_dist = fit(typeof(trainer.initial_state_dist), 
+        try
+            trainer.initial_state_dist = fit(typeof(trainer.initial_state_dist), 
             trainer.feedback["states"], 
             x_w = x_w, 
             n_components = trainer.n_components)
+        catch except
+            JLD.save("../data/bug_states.jld", "states", trainer.feedback["states"],
+            "x_w", x_w)
+            throw(except)
+        end
 
         # pause(trainer.monitor.timer)
-        # a = plot_1d_dist(trainer.initial_state_dist)
-        # save("/Users/wulfebw/Desktop/temp_risk/dist_$(trainer.step_count).pdf", a)
+        # # a = plot_1d_dist(trainer.initial_state_dist)
+        # a = plot_2d_dist(trainer.initial_state_dist)
+        # output_filepath = "/Users/wulfebw/Desktop/temp_risk/dist_$(
+        #     trainer.step_count).pdf"
+        # PGFPlots.save(output_filepath, a)
         # unpause(trainer.monitor.timer)
 
         # empty the trainers feedback

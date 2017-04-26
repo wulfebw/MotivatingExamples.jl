@@ -71,11 +71,11 @@ function initialize_gmm(K::Int, x::Array{Float64},
 
     # means 
     μ = zeros(D, K)
-    step = Int(ceil(D / K))
+    step = Int(floor(N / K))
     for k in 1:K
         s = (k-1) * step
         e = s + step
-        μ[:,k] = sum(x[:, s+1:e] .* x_w) / sum(x_w)
+        μ[:,k] = sum(x[:, s+1:e] .* x_w[:, s+1:e], 2) ./ sum(x_w[:, s+1:e], 2)
     end
 
     # covariance matrices
@@ -85,8 +85,8 @@ function initialize_gmm(K::Int, x::Array{Float64},
     end
 
     # class prior weights
-    π = rand(K)
-    π ./= sum(π)
+    π = ones(K)
+    π ./= K
 
     return w, μ, Σ, π
 end
@@ -118,7 +118,6 @@ function fit_gmm(x::Array{Float64};
     K = n_components
     w, μ, Σ, π = initialize_gmm(K, x, x_w)
     dists = get_gmm_dists(μ, Σ, K)
-
     prev_ll = compute_gmm_ll(π, μ, Σ, x, x_w)
     for iteration in 1:max_iters
         

@@ -119,7 +119,35 @@ function test_learner_reinitialize()
     @test all(values1 .== values2)
 end
 
+function test_predict()
+    srand(0)
+    minpos = 0
+    maxpos = 1
+    nbins = 6
+    bins = linspace(minpos, maxpos, nbins)
+    grid = RectangleGrid(bins, bins)
+    target_dim = 2
+    learner = TDLearner(grid, target_dim, discount = 0.5)
+    learner.values = ones(size(learner.values))
+
+    eval_states_x = linspace(minpos, maxpos, nbins)
+    eval_states_y = linspace(minpos, maxpos, nbins)
+    eval_states = zeros(2, nbins, nbins)
+    for i in 1:nbins
+        for j in 1:nbins
+        eval_states[1,i,j] = eval_states_x[i]
+        eval_states[2,i,j] = eval_states_y[j]
+        end
+    end
+    eval_states = reshape(eval_states, 2, nbins * nbins)
+
+    pred_vals = predict(learner, eval_states)
+    @test all(pred_vals .== ones(size(pred_vals)))
+
+end
+
 println("test_td_learner.jl")
 @time test_simple_td_learning()
 @time test_learner_reinitialize()
+@time test_predict()
 # @time test_simple_td_learning_on_1D_mdp()

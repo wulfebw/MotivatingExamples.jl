@@ -19,11 +19,11 @@ function plot_learning_curve(monitor::TrainingMonitor, output_filepath::String)
         legendPos="south west", 
         width="16cm", 
         height="16cm", 
-        xlabel="Seconds", 
+        xlabel="Training Time", 
         ylabel="Root Mean Square Error", 
         title="Error in Estimated Risk", 
         ymin=0., 
-        ymax=.6
+        ymax=1.2
     )
     p = Plots.Linear(collect(1:length(curve)), curve)
     push!(a, p)
@@ -40,6 +40,15 @@ function plot_1d_dist(d::Distribution, n_samples::Int = 1000)
                 width="5.5cm", 
                 height="5.5cm",
                 legendPos="north west"
+    )
+    return a
+end
+
+function plot_2d_dist(d::Distribution, n_samples::Int = 1000)
+    samples = rand(d, n_samples)
+    a = Axis(Plots.Scatter(samples[1,:], samples[2,:]), 
+                width="8cm", 
+                height="8cm"
     )
     return a
 end

@@ -1,6 +1,7 @@
-# using Base.Test
-# using MotivatingExamples
-# using PGFPlots
+using Base.Test
+using JLD
+using MotivatingExamples
+using PGFPlots
 
 function build_debug_setup(;
         # general hyperparams
@@ -106,7 +107,7 @@ function test_trainer_reinitialize()
     @test loss_1 == loss_3
 end
 
-function test_adaptive_trainer()
+function test_adaptive_trainer_1d_env()
      srand(0)
     
     # build everything
@@ -150,7 +151,96 @@ function test_adaptive_trainer()
 
 end
 
+function test_adaptive_trainer_2d_env()
+     srand(0)
+    
+    # env
+    xmin = -100.
+    xmax = 100.
+    ymin = -100.
+    ymax = 100.
+    env = Continuous2DRareEventEnv(
+        xmin = xmin, 
+        xmax = xmax,
+        ymin = ymin,
+        ymax = ymax,
+        max_thresh = 4.,
+        min_thresh = 1.5)
+
+    # policy
+    policy = MultivariateGaussianPolicy()
+
+    # learner
+    nbins = 10
+    discount = 1.
+    lr = 0.1
+    xbins = linspace(env.xmin, env.xmax, nbins)
+    ybins = linspace(env.ymin, env.ymax, nbins)
+    grid = RectangleGrid(xbins, ybins)
+    target_dim = 1
+    learner = TDLearner(grid, target_dim, discount = discount, lr = lr)
+
+    # trainer
+    budget = 2.
+    run_eval_every = 5000
+    ## dist
+    π = [.5, .5]
+    μ = zeros(2,2)
+    μ[1,1] = xmin / 2
+    μ[2,1] = ymin / 2
+    μ[2,1] = xmax / 2
+    μ[2,2] = ymax / 2
+    σ = ((xmax - xmin) / 4.)^2
+    Σ = reshape(hcat(eye(2),eye(2)), 2,2,2) .* σ
+    dist = GaussianMixtureModel(π, μ, Σ)
+
+    n_eval_bins = 40
+    eval_states_x = linspace(env.xmin, env.xmax, n_eval_bins)
+    eval_states_y = linspace(env.ymin, env.ymax, n_eval_bins)
+    eval_states = zeros(2, n_eval_bins, n_eval_bins)
+    for i in 1:n_eval_bins
+        for j in 1:n_eval_bins
+        eval_states[1,i,j] = eval_states_x[i]
+        eval_states[2,i,j] = eval_states_y[j]
+        end
+    end
+    eval_states = reshape(eval_states, 2, n_eval_bins * n_eval_bins)
+
+    v_true = ones(n_eval_bins * n_eval_bins)
+    monitor = TrainingMonitor(timer = BudgetTimer(budget), 
+        eval_states = eval_states, v_true = v_true, 
+        run_eval_every = run_eval_every)
+
+    trainer = AdaptiveTrainer(dist, monitor,
+        max_episode_steps = 1,
+        num_mc_runs = 1,
+        max_step_count = typemax(Int),
+        update_dist_freq = 10000000)
+
+    # run training
+    train(trainer, learner, env, policy)
+
+    v_pred = reshape(predict(learner, eval_states), size(v_true))
+    final_mse = rmse(v_true, v_pred)
+
+    # save everything
+    output_filepath = "../data/uniform.jld"
+    JLD.save(output_filepath, "learning_curve", monitor.info["state-value rmse loss"], "state_values", v_pred)
+
+    # visualize it
+    get_heat(x, y) = predict(learner, [x,y])[1]
+
+    nbins = 20
+    img = Axis(Plots.Image(get_heat, (env.xmin, env.xmax), (env.ymin, env.ymax),
+        xbins=nbins, ybins=nbins), title="state-values; error: $(round(final_mse, 5))")
+    PGFPlots.save("/Users/wulfebw/Desktop/test_2d.pdf", img)
+
+    plot_learning_curve(monitor, 
+        "/Users/wulfebw/Desktop/adaptive_test_learning_curve.pdf")
+end
+
 println("test_trainer.jl")
 @time test_trainer()
 @time test_trainer_reinitialize()
-@time test_adaptive_trainer()
+# @time test_adaptive_trainer_1d_env()
+# @time test_adaptive_trainer_2d_env()
