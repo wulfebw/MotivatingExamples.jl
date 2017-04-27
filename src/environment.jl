@@ -10,6 +10,8 @@ export
 abstract Environment
 typealias Env Environment
 srand(env::Env, seed::Int) = srand(env.rng, seed)
+# when the distribution passed in in nothing, call the default
+reset!(env::Env, null_dist::Void) = reset!(env)
 
 @with_kw type Continuous1DRandomWalkEnv <: Environment
     xmin::Float64 = -10.
@@ -21,6 +23,9 @@ end
 function reset!(env::Continuous1DRandomWalkEnv, 
         dist::Distribution = env.initial_state_dist) 
     x = rand(env.rng, dist)
+    while x[1] < env.xmin || x[1] > env.xmax
+        x = rand(env.rng, dist)
+    end
     if typeof(x) == Float64
         x = [x]
     end
@@ -64,7 +69,7 @@ end
     # selected to place .9995 of the mass of unit gaussian below
     max_thresh::Float64 = 3.290
     # likewise lower bound places .9955 of mass of unit gaussian below
-    min_thresh::Float64 = 2.807
+    min_thresh::Float64 = 1.959
     initial_state_dist::Distribution = MultivariateUniform(xmin, xmax, ymin, ymax)
     x::Array{Float64} = [0., 0.]
     rng::MersenneTwister = MersenneTwister(1)
@@ -99,9 +104,9 @@ function step(env::Continuous2DRareEventEnv, a::Array{Float64})
 end
 
 function pdf(env::Continuous2DRareEventEnv, x::Vector{Float64})
-    return 1 / (env.xmax - env.xmin)
+    return (1 / (env.xmax - env.xmin)) * (1 / (env.ymax - env.ymin))
 end
 function pdf(env::Continuous2DRareEventEnv, x::Array{Float64})
     _, N = size(x)
-    return ones(N) ./ (env.xmax - env.xmin)
+    return ones(N) ./ ((env.xmax - env.xmin) * (env.ymax - env.ymin))
 end

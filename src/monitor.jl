@@ -40,7 +40,8 @@ end
 function should_run_eval(monitor::TrainingMonitor, step_count::Int)
     should_run = is_on(monitor)
     should_run &= (!has_time_remaining(monitor.eval_timer)
-        || step_count - monitor.last_eval_step_count >= monitor.run_eval_every)
+        || step_count - monitor.last_eval_step_count >= monitor.run_eval_every
+        || !in("state-value rmse loss", keys(monitor.info)))
 
     # if true, then update tracking information
     if should_run

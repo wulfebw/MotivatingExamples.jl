@@ -30,21 +30,21 @@ function plot_learning_curve(monitor::TrainingMonitor, output_filepath::String)
     PGFPlots.save(output_filepath, a)
 end
 
-function plot_1d_dist(d::Distribution, n_samples::Int = 1000)
+function plot_1d_dist(d::Distribution, n_samples::Int = 2000)
     samples = rand(d, n_samples)
     lo, hi = minimum(samples), maximum(samples)
     samples = reshape(samples, length(samples))
     a = Axis(Plots.Histogram(samples, bins=50), 
                 xmin=lo, 
                 xmax=hi, 
-                width="5.5cm", 
-                height="5.5cm",
+                width="8cm", 
+                height="8cm",
                 legendPos="north west"
     )
     return a
 end
 
-function plot_2d_dist(d::Distribution, n_samples::Int = 1000)
+function plot_2d_dist(d::Distribution, n_samples::Int = 2000)
     samples = rand(d, n_samples)
     a = Axis(Plots.Scatter(samples[1,:], samples[2,:]), 
                 width="8cm", 

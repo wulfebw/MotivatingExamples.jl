@@ -21,9 +21,13 @@ type Uniform <: Distribution
   lo::Float64  
 end
 
+rand(d::Uniform) = rand() * (d.hi - d.lo) + d.lo
+rand(d::Uniform, n_samples::Int) = rand(n_samples) .* (d.hi - d.lo) .+ d.lo
 rand(rng::MersenneTwister, d::Uniform) = rand(rng) * (d.hi - d.lo) + d.lo
 pdf(d::Uniform, v::Float64) = 1. / (d.hi - d.lo)
 logpdf(d::Uniform, v::Float64) = log(pdf(d, v))
+pdf(d::Uniform, v::Array{Float64}) = ones(length(v)) ./ (d.hi - d.lo)
+logpdf(d::Uniform, v::Array{Float64}) = log(pdf(d, v))
 
 type MultivariateUniform <: Distribution
     x::Uniform

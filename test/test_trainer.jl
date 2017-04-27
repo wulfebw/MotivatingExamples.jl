@@ -16,6 +16,7 @@ function build_debug_setup(;
         initial_state_dist = nothing,
         run_eval_every = typemax(Int),
         # learner
+        learner_type = TDLearner,
         nbins = 10,
         # env
         xmin::Float64 = -10.,
@@ -33,7 +34,7 @@ function build_debug_setup(;
     bins = linspace(env.xmin, env.xmax, nbins)
     grid = RectangleGrid(bins)
     target_dim = 1
-    learner = TDLearner(grid, target_dim, discount = discount, lr = lr)
+    learner = learner_type(grid, target_dim, discount = discount, lr = lr)
 
     # trainer
     if initial_state_dist == nothing
@@ -111,10 +112,10 @@ function test_adaptive_trainer_1d_env()
      srand(0)
     
     # build everything
-    budget = 10.
+    budget = 120.
     run_eval_every = 1000
-    xmin = -10.
-    xmax = 10.
+    xmin = -100000.
+    xmax = 100000.
     π = [.49, .51]
     μ = reshape([xmin / 2, xmax / 2], 1, 2)
 
@@ -123,8 +124,8 @@ function test_adaptive_trainer_1d_env()
     dist = GaussianMixtureModel(π, μ, Σ)
 
     trainer, learner, env, policy = build_debug_setup(
-        initial_state_dist = dist,
-        update_dist_freq = 100,
+        initial_state_dist = nothing,
+        update_dist_freq = -1,
         max_episode_steps = 1,
         n_eval_bins = 1000,
         xmin = xmin,
@@ -141,13 +142,13 @@ function test_adaptive_trainer_1d_env()
 
     v_pred = predict(learner, monitor.eval_states)
     loss = rmse(monitor.v_true, v_pred)
-    @test loss < .2
+    # @test loss < .2
 
     # plotting
-    # plot_state_values(learner, monitor, 
-    #     "/Users/wulfebw/Desktop/adaptive_test_state_values.pdf")
-    # plot_learning_curve(monitor, 
-    #     "/Users/wulfebw/Desktop/adaptive_test_learning_curve.pdf")
+    plot_state_values(learner, monitor, 
+        "/Users/wulfebw/Desktop/adaptive_test_state_values_1d.pdf")
+    plot_learning_curve(monitor, 
+        "/Users/wulfebw/Desktop/adaptive_test_learning_curve_1d.pdf")
 
 end
 
@@ -165,7 +166,7 @@ function test_adaptive_trainer_2d_env()
         ymin = ymin,
         ymax = ymax,
         max_thresh = 4.,
-        min_thresh = 1.5)
+        min_thresh = 1.)
 
     # policy
     policy = MultivariateGaussianPolicy()
@@ -181,7 +182,7 @@ function test_adaptive_trainer_2d_env()
     learner = TDLearner(grid, target_dim, discount = discount, lr = lr)
 
     # trainer
-    budget = 2.
+    budget = typemax(Float64)
     run_eval_every = 5000
     ## dist
     π = [.5, .5]
@@ -211,11 +212,11 @@ function test_adaptive_trainer_2d_env()
         eval_states = eval_states, v_true = v_true, 
         run_eval_every = run_eval_every)
 
-    trainer = AdaptiveTrainer(dist, monitor,
+    trainer = AdaptiveTrainer(nothing, monitor,
         max_episode_steps = 1,
         num_mc_runs = 1,
-        max_step_count = typemax(Int),
-        update_dist_freq = 10000000)
+        max_step_count = 500000,
+        update_dist_freq = -1)
 
     # run training
     train(trainer, learner, env, policy)
@@ -239,8 +240,39 @@ function test_adaptive_trainer_2d_env()
         "/Users/wulfebw/Desktop/adaptive_test_learning_curve.pdf")
 end
 
+function test_trainer_with_mc_learner()
+    trainer, learner, env, policy = build_debug_setup(
+        initial_state_dist = nothing,
+        update_dist_freq = -1,
+        max_episode_steps = 1,
+        n_eval_bins = 1000,
+        xmin = -1000.,
+        xmax = 1000.,
+        budget = 5.,
+        run_eval_every = 5000,
+        lr = 0.1,
+        nbins = 40,
+        learner_type = MCLearner)
+    monitor = trainer.monitor
+    n_eval_bins = length(monitor.eval_states)
+
+    # run training
+    train(trainer, learner, env, policy)
+
+    v_pred = predict(learner, monitor.eval_states)
+    loss = rmse(monitor.v_true, v_pred)
+    # @test loss < .2
+
+    # plotting
+    plot_state_values(learner, monitor, 
+        "/Users/wulfebw/Desktop/adaptive_test_state_values_1d.pdf")
+    plot_learning_curve(monitor, 
+        "/Users/wulfebw/Desktop/adaptive_test_learning_curve_1d.pdf")
+end
+
 println("test_trainer.jl")
 @time test_trainer()
 @time test_trainer_reinitialize()
 # @time test_adaptive_trainer_1d_env()
 # @time test_adaptive_trainer_2d_env()
+# @time test_trainer_with_mc_learner()
